@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeArena — Enter the Arena</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    .particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .particle {
+      position: absolute; width: 2px; height: 2px; background: var(--accent);
+      border-radius: 50%; opacity: 0; animation: float linear infinite;
+    }
+    @keyframes float {
+      0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+      10% { opacity: 0.6; }
+      90% { opacity: 0.3; }
+      100% { transform: translateY(-100px) translateX(var(--drift)); opacity: 0; }
+    }
+    .panel { display: none; } .panel.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="particles" id="particles"></div>
+
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        CODE<span>ARENA</span>
+        <small>Competitive Learning Platform</small>
+      </div>
+
+      <div id="auth-msg"></div>
+
+      <div class="tab-switch">
+        <div class="tab-btn active" onclick="switchTab('login')" id="login-tab">Login</div>
+        <div class="tab-btn" onclick="switchTab('register')" id="register-tab">Register</div>
+      </div>
+
+      <!-- LOGIN -->
+      <form id="login-form" class="panel active" onsubmit="return false;">
+        <div class="form-group">
+          <label class="label">Username</label>
+          <input id="login-username" class="input" type="text" placeholder="your_username" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label class="label">Password</label>
+          <input id="login-password" class="input" type="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg" style="width:100%; margin-top:8px;">⚡ Enter Arena</button>
+        <div style="margin-top:14px; text-align:center; font-size:12px; color:var(--text-muted);">
+          Demo: <code>teacher1 / teacher123</code> &nbsp;|&nbsp; <code>student1 / student123</code>
+        </div>
+      </form>
+
+      <!-- REGISTER -->
+      <form id="register-form" class="panel" onsubmit="return false;">
+        <div class="form-group">
+          <label class="label">I am a...</label>
+          <div class="role-selector">
+            <div class="role-btn active" data-role="student">🧑‍💻 Student</div>
+            <div class="role-btn" data-role="teacher">👩‍🏫 Teacher</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="label">Username</label>
+          <input id="reg-username" class="input" type="text" placeholder="your_username">
+        </div>
+        <div class="form-group">
+          <label class="label">Email</label>
+          <input id="reg-email" class="input" type="email" placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+          <label class="label">Password</label>
+          <input id="reg-password" class="input" type="password" placeholder="min 6 characters">
+        </div>
+        <button type="submit" class="btn btn-success btn-lg" style="width:100%; margin-top:8px;">🚀 Join Arena</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+  <script>
+    // Floating particles
+    const pc = document.getElementById('particles');
+    for (let i = 0; i < 30; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.cssText = `
+        left:${Math.random()*100}%;
+        animation-duration:${8+Math.random()*12}s;
+        animation-delay:${Math.random()*10}s;
+        --drift:${(Math.random()-0.5)*200}px;
+        opacity:${Math.random()*0.5};
+      `;
+      pc.appendChild(p);
+    }
+
+    function showToast(msg, type='info') {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.className = `show ${type}`;
+      setTimeout(() => t.className = '', 3000);
+    }
+  </script>
+</body>
+</html>

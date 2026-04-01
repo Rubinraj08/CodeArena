@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeArena — Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a class="navbar-brand" href="/dashboard">CODE<span>ARENA</span></a>
+  <div class="navbar-right">
+    {% if current_user.role == 'student' %}
+    <div class="user-chip">
+      <span>{{ current_user.avatar }}</span>
+      <span class="mono" style="font-size:11px;">LVL {{ current_user.level }}</span>
+      <span style="font-size:13px;">{{ current_user.username }}</span>
+      <span style="color:var(--accent); font-size:12px; font-family:'Space Mono',monospace;">{{ current_user.xp }} XP</span>
+    </div>
+    {% else %}
+    <div class="user-chip">
+      <span>{{ current_user.avatar }}</span>
+      <span>{{ current_user.username }}</span>
+      <span class="tag" style="background:rgba(124,58,237,0.2);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);">TEACHER</span>
+    </div>
+    {% endif %}
+    <a href="/logout" class="btn btn-ghost btn-sm">Logout</a>
+  </div>
+</nav>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    {% if role == 'teacher' %}
+    <a class="sidebar-item active" onclick="showPanel('overview')" href="#">
+      <span class="sidebar-icon">📊</span> Overview
+    </a>
+    <a class="sidebar-item" onclick="showPanel('tasks')" href="#">
+      <span class="sidebar-icon">📋</span> My Tasks
+    </a>
+    <a class="sidebar-item" onclick="showPanel('submissions')" href="#">
+      <span class="sidebar-icon">📨</span> Submissions
+    </a>
+    <a class="sidebar-item" onclick="showPanel('students')" href="#">
+      <span class="sidebar-icon">👥</span> Students
+    </a>
+    <a class="sidebar-item" href="/task/create">
+      <span class="sidebar-icon">➕</span> Create Task
+    </a>
+    {% else %}
+    <a class="sidebar-item active" onclick="showPanel('challenges')" href="#">
+      <span class="sidebar-icon">⚔️</span> Challenges
+    </a>
+    <a class="sidebar-item" onclick="showPanel('progress')" href="#">
+      <span class="sidebar-icon">📈</span> My Progress
+    </a>
+    <a class="sidebar-item" onclick="showPanel('leaderboard')" href="#">
+      <span class="sidebar-icon">🏆</span> Leaderboard
+    </a>
+    <a class="sidebar-item" onclick="showPanel('badges')" href="#">
+      <span class="sidebar-icon">🎖️</span> Badges
+    </a>
+    {% endif %}
+  </nav>
+
+  <main class="main-content">
+
+    <!-- ════════════════════ TEACHER PANELS ════════════════════ -->
+    {% if role == 'teacher' %}
+
+    <!-- Overview -->
+    <div class="panel active" id="panel-overview">
+      <h2 class="section-title">📊 Teacher Overview</h2>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-value">{{ tasks|length }}</div>
+          <div class="stat-label">Total Tasks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ tasks|selectattr('is_published')|list|length }}</div>
+          <div class="stat-label">Published</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ submissions|length }}</div>
+          <div class="stat-label">Submissions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ submissions|selectattr('is_flagged')|list|length }}</div>
+          <div class="stat-label" style="color:var(--red);">⚑ Flagged</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ students|length }}</div>
+          <div class="stat-label">Students</div>
+        </div>
+      </div>
+
+      <h3 class="section-title" style="font-size:16px; margin-top:8px;">Recent Flagged Submissions</h3>
+      {% set flagged = submissions|selectattr('is_flagged')|list %}
+      {% if flagged %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Student</th><th>Task</th><th>Tab Switches</th><th>Copy/Paste</th><th>Actions</th></tr></thead>
+          <tbody>
+          {% for s in flagged[:10] %}
+          <tr>
+            <td>{{ s.student.username }}</td>
+            <td>{{ s.task.title }}</td>
+            <td class="{% if s.tab_switches > 3 %}text-red{% endif %}">{{ s.tab_switches }}</td>
+            <td class="{% if s.copy_paste_count > 5 %}text-red{% endif %}">{{ s.copy_paste_count }}</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="viewLog({{ s.id }})">🔍 View Log</button></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="alert alert-success">✅ No flagged submissions.</div>
+      {% endif %}
+    </div>
+
+    <!-- Tasks -->
+    <div class="panel" id="panel-tasks">
+      <div class="flex between flex-center mb-24">
+        <h2 class="section-title" style="margin:0; border:0; padding:0;">📋 My Tasks</h2>
+        <a href="/task/create" class="btn btn-primary">+ Create Task</a>
+      </div>
+      {% if tasks %}
+      <div class="task-grid">
+        {% for task in tasks %}
+        <div class="task-card">
+          <div class="task-meta">
+            <span class="tag tag-{{ task.difficulty }}">{{ task.difficulty }}</span>
+            <span class="tag" style="background:rgba(0,212,255,0.1);color:var(--accent);">{{ task.topic }}</span>
+            {% if task.is_published %}
+            <span class="tag" style="background:rgba(0,255,136,0.1);color:var(--green);">Published</span>
+            {% else %}
+            <span class="tag" style="background:rgba(100,100,100,0.2);color:var(--text-muted);">Draft</span>
+            {% endif %}
+          </div>
+          <div class="task-title">{{ task.title }}</div>
+          <div class="task-desc">{{ task.description[:80] }}{% if task.description|length > 80 %}...{% endif %}</div>
+          <div class="task-footer">
+            <span class="text-muted text-sm">{{ task.submissions|length }} submissions</span>
+            <div class="flex gap-8">
+              <button class="btn btn-ghost btn-sm" onclick="togglePublish({{ task.id }}, this)">
+                {{ '🔒 Unpublish' if task.is_published else '📢 Publish' }}
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="deleteTask({{ task.id }}, this)">🗑</button>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state"><span class="big">📋</span>No tasks yet. <a href="/task/create" class="text-accent">Create your first task →</a></div>
+      {% endif %}
+    </div>
+
+    <!-- Submissions -->
+    <div class="panel" id="panel-submissions">
+      <h2 class="section-title">📨 All Submissions</h2>
+      {% if submissions %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Student</th><th>Task</th><th>Score</th><th>Status</th><th>Time</th><th>Integrity</th><th>Log</th></tr></thead>
+          <tbody>
+          {% for s in submissions|sort(attribute='submitted_at', reverse=True) %}
+          <tr>
+            <td>{{ s.student.username }}</td>
+            <td>{{ s.task.title }}</td>
+            <td class="mono">{{ s.score|round(1) }}%</td>
+            <td><span class="tag tag-{{ s.status }}">{{ s.status.upper() }}</span></td>
+            <td class="text-muted text-sm">{{ s.submitted_at.strftime('%b %d %H:%M') }}</td>
+            <td>
+              {% if s.is_flagged %}
+              <span class="flag" title="Flagged: Tabs={{ s.tab_switches }}, Paste={{ s.copy_paste_count }}">⚑ FLAGGED</span>
+              {% else %}<span class="text-green">✓ Clean</span>{% endif %}
+            </td>
+            <td>
+              <button class="btn btn-ghost btn-sm" onclick="viewLog({{ s.id }})" title="View Log">🔍</button>
+              {% if s.ai_analysis %}
+              <button class="btn btn-ghost btn-sm" onclick="viewAiAnalysis({{ s.id }})" title="View AI Analysis">🤖</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state"><span class="big">📭</span>No submissions yet.</div>
+      {% endif %}
+    </div>
+
+    <!-- Students -->
+    <div class="panel" id="panel-students">
+      <h2 class="section-title">👥 Student Performance</h2>
+      {% if students %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Rank</th><th>Student</th><th>Level</th><th>XP</th><th>Analytics</th></tr></thead>
+          <tbody>
+          {% for s in students %}
+          <tr>
+            <td class="mono">{{ loop.index }}</td>
+            <td>{{ s.avatar }} {{ s.username }}</td>
+            <td>{{ s.level }}</td>
+            <td class="text-accent mono">{{ s.xp }}</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="viewStudentAnalytics({{ s.id }})">📊 View</button></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state"><span class="big">👥</span>No students yet.</div>
+      {% endif %}
+    </div>
+
+    <!-- ════════════════════ STUDENT PANELS ════════════════════ -->
+    {% else %}
+
+    <!-- XP Bar (Student header) -->
+    <div class="card mb-24" style="padding:16px 20px;">
+      <div class="flex between flex-center" style="gap:16px;">
+        <div>
+          <div style="font-family:'Rajdhani',sans-serif; font-size:24px; font-weight:700;">
+            {{ current_user.avatar }} {{ current_user.username }}
+          </div>
+          <div class="text-muted text-sm">Level {{ current_user.level }} Coder</div>
+        </div>
+        <div style="flex:1; max-width:300px;">
+          <div class="flex between text-sm mb-8">
+            <span class="text-muted">XP Progress</span>
+            <span class="text-accent mono">{{ current_user.xp }} XP</span>
+          </div>
+          <div class="xp-bar-wrap">
+            <div class="xp-bar-fill" style="width:{{ current_user.xp_progress() }}%;"></div>
+          </div>
+          <div class="flex between text-sm mt-8" style="margin-top:4px;">
+            <span class="text-muted">Level {{ current_user.level }}</span>
+            <span class="text-muted">Level {{ current_user.level + 1 }}</span>
+          </div>
+        </div>
+        <div class="stat-card" style="padding:10px 20px; margin:0;">
+          <div class="stat-value" style="font-size:24px;">{{ solved_ids|length }}</div>
+          <div class="stat-label">Solved</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Challenges -->
+    <div class="panel active" id="panel-challenges">
+      <h2 class="section-title">⚔️ Available Challenges</h2>
+      {% if tasks %}
+      <div class="task-grid">
+        {% for task in tasks %}
+        <div class="task-card {% if task.id in solved_ids %}solved{% endif %}" onclick="window.location.href='/task/{{ task.id }}/solve'">
+          <div class="task-meta">
+            <span class="tag tag-{{ task.difficulty }}">{{ task.difficulty }}</span>
+            <span class="tag" style="background:rgba(0,212,255,0.1);color:var(--accent);">{{ task.topic }}</span>
+            {% if task.id in solved_ids %}
+            <span class="tag" style="background:rgba(0,255,136,0.15);color:var(--green);">✅ Solved</span>
+            {% endif %}
+          </div>
+          <div class="task-title">{{ task.title }}</div>
+          <div class="task-desc">{{ task.description[:100] }}{% if task.description|length > 100 %}...{% endif %}</div>
+          <div class="task-footer">
+            <span class="text-muted text-sm">⏱ {{ task.time_limit }} min</span>
+            <span class="xp-pill">+{{ task.xp_reward }} XP</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state"><span class="big">⚔️</span>No challenges available yet.</div>
+      {% endif %}
+    </div>
+
+    <!-- Progress -->
+    <div class="panel" id="panel-progress">
+      <h2 class="section-title">📈 My Submissions</h2>
+      {% if submissions %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Task</th><th>Score</th><th>Status</th><th>XP Earned</th><th>Date</th><th>Action</th></tr></thead>
+          <tbody>
+          {% for s in submissions|sort(attribute='submitted_at', reverse=True) %}
+          <tr>
+            <td>{{ s.task.title }}</td>
+            <td class="mono">{{ s.score|round(1) }}%</td>
+            <td><span class="tag tag-{{ s.status }}">{{ s.status.upper() }}</span></td>
+            <td class="text-accent mono">{% if s.xp_earned > 0 %}+{{ s.xp_earned }}{% else %}—{% endif %}</td>
+            <td class="text-muted text-sm">{{ s.submitted_at.strftime('%b %d, %H:%M') }}</td>
+            <td>
+              {% if s.ai_analysis %}
+              <button class="btn btn-ghost btn-sm" onclick="viewAiAnalysis({{ s.id }})">🤖 Analysis</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state"><span class="big">📈</span>No submissions yet. Solve a challenge!</div>
+      {% endif %}
+    </div>
+
+    <!-- Leaderboard -->
+    <div class="panel" id="panel-leaderboard">
+      <h2 class="section-title">🏆 Leaderboard</h2>
+      {% if leaderboard %}
+      {% for user in leaderboard %}
+      <div class="lb-item {% if user.id == current_user.id %}card-glow{% endif %}" style="{% if user.id == current_user.id %}border-color:var(--accent);{% endif %}">
+        <div class="lb-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
+          {% if loop.index <= 3 %}{{ ['🥇','🥈','🥉'][loop.index-1] }}{% else %}#{{ loop.index }}{% endif %}
+        </div>
+        <span style="font-size:20px;">{{ user.avatar }}</span>
+        <div class="lb-name">{{ user.username }}{% if user.id == current_user.id %} <span class="text-accent text-sm">(you)</span>{% endif %}</div>
+        <div style="text-align:right;">
+          <div class="lb-xp">{{ user.xp }} XP</div>
+          <div class="text-muted text-sm">Lvl {{ user.level }}</div>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="empty-state"><span class="big">🏆</span>No rankings yet.</div>
+      {% endif %}
+    </div>
+
+    <!-- Badges -->
+    <div class="panel" id="panel-badges">
+      <h2 class="section-title">🎖️ My Badges</h2>
+      {% if badges %}
+      <div class="badges-grid">
+        {% for b in badges %}
+        <div class="badge-chip">
+          <span class="badge-icon">{{ b.icon }}</span>
+          <div>
+            <div style="font-weight:600; font-size:14px;">{{ b.name }}</div>
+            <div class="text-muted text-sm">{{ b.description }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <span class="big">🎖️</span>
+        No badges yet. Solve challenges to earn them!
+        <div style="margin-top:16px; font-size:13px; color:var(--text-muted);">
+          Available: 🩸 First Blood · 🔥 On Fire · ⚔️ Code Warrior · 💎 XP Hunter · 👑 Legend
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+
+<!-- Integrity Log Modal (Teacher) -->
+<div class="modal-overlay" id="log-modal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-title">🔍 Integrity Log</div>
+    <div id="log-content"></div>
+    <div style="margin-top:20px; text-align:right;">
+      <button class="btn btn-ghost" onclick="document.getElementById('log-modal').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Student Analytics Modal (Teacher) -->
+<div class="modal-overlay" id="analytics-modal">
+  <div class="modal">
+    <div class="modal-title">📊 Student Analytics</div>
+    <div id="analytics-content"></div>
+    <div style="margin-top:20px; text-align:right;">
+      <button class="btn btn-ghost" onclick="document.getElementById('analytics-modal').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI Analysis Modal -->
+<div class="modal-overlay" id="ai-modal">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-title">🤖 AI Mentor Analysis</div>
+    <div id="ai-content" style="max-height:500px; overflow-y:auto; padding:10px;"></div>
+    <div style="margin-top:20px; text-align:right;">
+      <button class="btn btn-ghost" onclick="document.getElementById('ai-modal').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function showToast(msg, type='info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `show ${type}`;
+  setTimeout(() => t.className = '', 3000);
+}
+
+async function togglePublish(taskId, btn) {
+  const res = await fetch(`/task/${taskId}/publish`, { method: 'POST' });
+  const data = await res.json();
+  if (data.success) {
+    btn.textContent = data.published ? '🔒 Unpublish' : '📢 Publish';
+    showToast(data.published ? 'Task published!' : 'Task unpublished.', 'info');
+  }
+}
+
+async function deleteTask(taskId, btn) {
+  if (!confirm('Delete this task and all its submissions?')) return;
+  const res = await fetch(`/task/${taskId}/delete`, { method: 'POST' });
+  const data = await res.json();
+  if (data.success) { btn.closest('.task-card').remove(); showToast('Task deleted.', 'error'); }
+}
+
+async function viewLog(subId) {
+  const res = await fetch(`/submission/${subId}/log`);
+  const data = await res.json();
+  const modal = document.getElementById('log-modal');
+  document.getElementById('log-content').innerHTML = `
+    <div class="stats-row" style="grid-template-columns:repeat(4,1fr);">
+      <div class="stat-card"><div class="stat-value" style="font-size:22px;">${data.tab_switches}</div><div class="stat-label">Tab Switches</div></div>
+      <div class="stat-card"><div class="stat-value" style="font-size:22px;">${data.copy_paste_count}</div><div class="stat-label">Copy/Paste</div></div>
+      <div class="stat-card"><div class="stat-value" style="font-size:22px;">${data.time_taken}s</div><div class="stat-label">Time Taken</div></div>
+      <div class="stat-card"><div class="stat-value" style="font-size:22px; color:${data.is_flagged ? 'var(--red)' : 'var(--green)'};">${data.is_flagged ? '⚑' : '✓'}</div><div class="stat-label">Status</div></div>
+    </div>
+    <div style="margin-top:14px; font-size:13px; color:var(--text-muted);">Student: <strong style="color:var(--text);">${data.username}</strong> | Task: <strong style="color:var(--text);">${data.task}</strong> | ${data.submitted_at}</div>
+    <div style="margin-top:14px;">
+      <div class="label">Event Log</div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;max-height:200px;overflow-y:auto;font-family:'Space Mono',monospace;font-size:12px;">
+        ${data.integrity_log.length ? data.integrity_log.map(e => `<div style="margin-bottom:4px;"><span style="color:var(--text-muted);">[${e.elapsed}]</span> <span style="color:var(--orange);">${e.type}</span> — ${e.detail}</div>`).join('') : '<span style="color:var(--text-muted);">No events recorded.</span>'}
+      </div>
+    </div>
+  `;
+  modal.classList.add('open');
+}
+
+async function viewStudentAnalytics(studentId) {
+  const res = await fetch(`/analytics/student/${studentId}`);
+  const data = await res.json();
+  document.getElementById('analytics-content').innerHTML = `
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-value" style="font-size:24px;">${data.xp}</div><div class="stat-label">XP</div></div>
+      <div class="stat-card"><div class="stat-value" style="font-size:24px;">${data.level}</div><div class="stat-label">Level</div></div>
+      <div class="stat-card"><div class="stat-value" style="font-size:24px;">${data.passed}</div><div class="stat-label">Solved</div></div>
+      <div class="stat-card"><div class="stat-value" style="font-size:24px;">${data.avg_score}%</div><div class="stat-label">Avg Score</div></div>
+    </div>
+    <div class="alert ${data.flagged_count > 0 ? 'alert-danger' : 'alert-success'}" style="margin-top:14px;">
+      ${data.flagged_count > 0 ? `⚑ ${data.flagged_count} flagged submission(s) detected.` : '✅ No integrity issues found.'}
+    </div>
+  `;
+  document.getElementById('analytics-modal').classList.add('open');
+}
+
+async function viewAiAnalysis(subId) {
+  const modal = document.getElementById('ai-modal');
+  const content = document.getElementById('ai-content');
+  content.innerHTML = '<div class="text-muted">Loading analysis...</div>';
+  modal.classList.add('open');
+  
+  try {
+    const res = await fetch(`/submission/${subId}/analysis`);
+    const data = await res.json();
+    content.innerHTML = data.analysis || '<div class="alert alert-warn">No analysis found for this submission.</div>';
+  } catch (err) {
+    content.innerHTML = '<div class="alert alert-danger">Failed to load analysis.</div>';
+  }
+}
+</script>
+</body>
+</html>

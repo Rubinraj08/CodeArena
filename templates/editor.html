@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ task.title }} — CodeArena</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a class="navbar-brand" href="/dashboard">CODE<span>ARENA</span></a>
+  <div class="navbar-right">
+    <div class="user-chip">
+      <span>{{ current_user.avatar }}</span>
+      <span>{{ current_user.username }}</span>
+      <span class="mono text-accent" style="font-size:12px;">{{ current_user.xp }} XP</span>
+    </div>
+    <a href="/dashboard" class="btn btn-ghost btn-sm">← Back</a>
+  </div>
+</nav>
+
+<!-- Integrity Banner -->
+<div class="integrity-bar" id="integrity-bar">
+  <span>⚑ <strong>Integrity Alert:</strong> Suspicious activity detected — <span id="flag-detail"></span></span>
+  <span class="text-sm">This will be reported to your teacher.</span>
+</div>
+
+<div class="editor-layout">
+
+  <!-- LEFT: Problem -->
+  <div class="problem-pane">
+    <!-- Header -->
+    <div class="flex between flex-center mb-16">
+      <div>
+        <h2 style="font-family:'Rajdhani',sans-serif; font-size:22px; font-weight:700; margin-bottom:4px;">{{ task.title }}</h2>
+        <div class="flex gap-8 flex-center">
+          <span class="tag tag-{{ task.difficulty }}">{{ task.difficulty }}</span>
+          <span class="tag" style="background:rgba(0,212,255,0.1);color:var(--accent);">{{ task.topic }}</span>
+          <span class="xp-pill">+{{ task.xp_reward }} XP</span>
+        </div>
+      </div>
+      <div style="text-align:right; font-family:'Space Mono',monospace;">
+        <div class="text-muted text-sm">Time Limit</div>
+        <div id="timer" class="text-accent" style="font-size:20px;">{{ task.time_limit }}:00</div>
+      </div>
+    </div>
+
+    <!-- Problem Description -->
+    <div class="card mb-16" style="padding:16px;">
+      <div class="label mb-8">Problem Statement</div>
+      <div style="white-space:pre-wrap; font-size:14px; line-height:1.7;">{{ task.description }}</div>
+    </div>
+
+    <!-- Integrity Counters -->
+    <div class="card mb-16" style="padding:12px 16px;">
+      <div class="flex between flex-center">
+        <span class="label" style="margin:0;">Integrity Monitor</span>
+        <div class="flex gap-16" style="font-size:13px;">
+          <span>Tab Switches: <span id="counter-tabs" class="mono text-accent">0</span></span>
+          <span>Copy/Paste: <span id="counter-paste" class="mono text-accent">0</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sample Test Cases -->
+    {% if test_cases %}
+    <div>
+      <div class="label mb-8">Sample Test Cases</div>
+      {% for tc in test_cases %}
+      <div class="test-case-item" style="margin-bottom:10px;">
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">
+          {% if tc.description %}{{ tc.description }}{% else %}Test Case {{ loop.index }}{% endif %}
+        </div>
+        <div class="flex gap-16">
+          <div style="flex:1;">
+            <div class="label" style="font-size:10px;">Input</div>
+            <pre style="background:var(--bg); padding:8px; border-radius:6px; font-size:13px; font-family:'Space Mono',monospace; color:var(--text);">{{ tc.input_data if tc.input_data else '(no input)' }}</pre>
+          </div>
+          <div style="flex:1;">
+            <div class="label" style="font-size:10px;">Expected Output</div>
+            <pre style="background:var(--bg); padding:8px; border-radius:6px; font-size:13px; font-family:'Space Mono',monospace; color:var(--green);">{{ tc.expected_output }}</pre>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- RIGHT: Editor -->
+  <div class="code-pane">
+    <!-- Toolbar -->
+    <div class="editor-toolbar">
+      <select id="lang-select" class="select" style="width:140px;" onchange="setLanguage(this.value)">
+        <option value="python">🐍 Python</option>
+        <option value="javascript">🟨 JavaScript</option>
+        <option value="c">📄 C</option>
+        <option value="cpp">📄 C++</option>
+        <option value="java">☕ Java</option>
+      </select>
+      <div style="flex:1;"></div>
+      <button id="run-btn" class="btn btn-ghost btn-sm" onclick="runSample()">▶ Run</button>
+      <button id="submit-btn" class="btn btn-success" onclick="submitCode()">🚀 Submit</button>
+    </div>
+
+    <!-- Code Editor -->
+    <textarea id="code-editor" spellcheck="false" placeholder="Write your code here..."></textarea>
+    <input type="hidden" id="task-id" value="{{ task.id }}">
+
+    <!-- Output Pane -->
+    <div class="output-pane">
+      <h4>OUTPUT</h4>
+      <div id="output-content">
+        <span class="text-muted text-sm">Run or submit to see results...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Result Modal -->
+<div class="modal-overlay" id="result-modal">
+  <div class="modal">
+    <div class="modal-title">Submission Results</div>
+    <div class="score-ring">
+      <div id="modal-score" class="score-number">0%</div>
+      <div id="modal-status" style="font-family:'Rajdhani',sans-serif; font-size:18px; margin-top:4px;"></div>
+      <div id="modal-passed" class="text-muted text-sm" style="margin-top:4px;"></div>
+    </div>
+    <div id="modal-xp" class="alert alert-success" style="display:none; text-align:center; font-size:16px; font-weight:700;"></div>
+    <div id="modal-integrity" class="alert alert-warn" style="display:none;"></div>
+    <div id="test-results-list" style="margin-top:14px;"></div>
+    
+    <!-- AI Mentor Analysis -->
+    <div id="ai-mentor-container" style="display:none; margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+      <div class="flex flex-center gap-8 mb-12">
+        <span style="font-size:20px;">🤖</span>
+        <h3 style="margin:0; font-family:'Rajdhani',sans-serif; color:var(--accent);">AI Mentor Analysis</h3>
+      </div>
+      <div id="ai-analysis-content" class="card" style="padding:16px; font-size:14px; line-height:1.6; max-height:300px; overflow-y:auto; background:rgba(255,255,255,0.03);">
+        <div class="text-muted">Analyzing your code...</div>
+      </div>
+    </div>
+
+    <div class="flex gap-8" style="margin-top:20px; justify-content:flex-end;">
+      <button id="ai-toggle-btn" class="btn btn-outline btn-sm" style="display:none;" onclick="toggleAiMentor()">🤖 View AI Feedback</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+      <a href="/dashboard" class="btn btn-outline">← Dashboard</a>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function showToast(msg, type='info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `show ${type}`;
+  setTimeout(() => t.className = '', 3000);
+}
+
+// Timer countdown
+let totalSeconds = {{ task.time_limit }} * 60;
+const timerEl = document.getElementById('timer');
+const timerInterval = setInterval(() => {
+  totalSeconds--;
+  if (totalSeconds <= 0) {
+    clearInterval(timerInterval);
+    timerEl.textContent = '00:00';
+    timerEl.style.color = 'var(--red)';
+    showToast('⏰ Time is up! Submitting...', 'error');
+    submitCode();
+    return;
+  }
+  const m = Math.floor(totalSeconds / 60).toString().padStart(2,'0');
+  const s = (totalSeconds % 60).toString().padStart(2,'0');
+  timerEl.textContent = `${m}:${s}`;
+  if (totalSeconds < 300) timerEl.style.color = 'var(--orange)';
+  if (totalSeconds < 60) timerEl.style.color = 'var(--red)';
+}, 1000);
+</script>
+<script src="{{ url_for('static', filename='js/integrity.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+</body>
+</html>

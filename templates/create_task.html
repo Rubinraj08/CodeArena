@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Task — CodeArena</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<nav class="navbar">
+  <a class="navbar-brand" href="/dashboard">CODE<span>ARENA</span></a>
+  <div class="navbar-right">
+    <a href="/dashboard" class="btn btn-ghost btn-sm">← Dashboard</a>
+  </div>
+</nav>
+
+<div class="main-content">
+  <div class="create-layout">
+    <h2 class="section-title">➕ Create New Challenge</h2>
+    <div id="form-msg"></div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+      <div>
+        <div class="form-group">
+          <label class="label">Challenge Title *</label>
+          <input id="f-title" class="input" type="text" placeholder="e.g. Two Sum">
+        </div>
+        <div class="form-group">
+          <label class="label">Topic / Category *</label>
+          <input id="f-topic" class="input" type="text" placeholder="e.g. Arrays, Strings, Math">
+        </div>
+        <div class="form-group">
+          <label class="label">Difficulty *</label>
+          <select id="f-difficulty" class="select">
+            <option value="easy">🟢 Easy (+50 XP)</option>
+            <option value="medium">🟡 Medium (+100 XP)</option>
+            <option value="hard">🔴 Hard (+200 XP)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="label">Time Limit (minutes)</label>
+          <input id="f-time" class="input" type="number" value="60" min="5" max="300">
+        </div>
+      </div>
+      <div>
+        <div class="form-group" style="height:100%;">
+          <label class="label">Problem Description *</label>
+          <textarea id="f-description" class="textarea" style="height:calc(100% - 28px);" placeholder="Explain the problem clearly. Include input format, output format, and any constraints."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test Cases -->
+    <div class="card mb-24">
+      <div class="flex between flex-center mb-16">
+        <h3 style="font-family:'Rajdhani',sans-serif; font-size:18px; font-weight:700;">Test Cases</h3>
+        <button class="btn btn-outline btn-sm" onclick="addTestCase()">+ Add Test Case</button>
+      </div>
+      <div id="test-cases-list"></div>
+      <div class="alert alert-info" style="margin-top:10px; font-size:12px;">
+        💡 Add at least 2-3 test cases. Hidden test cases won't be shown to students during solving.
+      </div>
+    </div>
+
+    <!-- Publish options -->
+    <div class="card mb-24" style="padding:16px 20px;">
+      <div class="flex between flex-center">
+        <div>
+          <div style="font-weight:600; margin-bottom:2px;">Publish immediately?</div>
+          <div class="text-muted text-sm">Students can see and solve published tasks.</div>
+        </div>
+        <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+          <input type="checkbox" id="f-publish" style="width:18px;height:18px;cursor:pointer;"> 
+          <span style="font-weight:600; color:var(--green);">Publish Now</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="flex gap-16">
+      <button class="btn btn-primary btn-lg" onclick="saveTask()">💾 Save Task</button>
+      <a href="/dashboard" class="btn btn-ghost btn-lg">Cancel</a>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let tcCount = 0;
+
+function addTestCase() {
+  tcCount++;
+  const id = tcCount;
+  const div = document.createElement('div');
+  div.className = 'test-case-item';
+  div.id = `tc-${id}`;
+  div.innerHTML = `
+    <div class="flex between flex-center mb-8">
+      <span style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:15px;">Test Case ${id}</span>
+      <div class="flex gap-8 flex-center">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+          <input type="checkbox" id="tc-hidden-${id}"> Hidden
+        </label>
+        <button class="btn btn-danger btn-sm" onclick="document.getElementById('tc-${id}').remove()">✕</button>
+      </div>
+    </div>
+    <div class="test-case-grid">
+      <div>
+        <label class="label">Input</label>
+        <textarea class="textarea" id="tc-input-${id}" placeholder="Input data (leave empty if no input)" style="min-height:60px;"></textarea>
+      </div>
+      <div>
+        <label class="label">Expected Output *</label>
+        <textarea class="textarea" id="tc-output-${id}" placeholder="Expected output" style="min-height:60px;"></textarea>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:8px; margin-bottom:0;">
+      <input class="input" id="tc-desc-${id}" placeholder="Description (optional, e.g. 'Basic case')" style="font-size:12px;">
+    </div>
+  `;
+  document.getElementById('test-cases-list').appendChild(div);
+}
+
+// Add first test case automatically
+addTestCase();
+
+async function saveTask() {
+  const title = document.getElementById('f-title').value.trim();
+  const topic = document.getElementById('f-topic').value.trim();
+  const description = document.getElementById('f-description').value.trim();
+  const difficulty = document.getElementById('f-difficulty').value;
+  const time_limit = parseInt(document.getElementById('f-time').value) || 60;
+  const publish = document.getElementById('f-publish').checked;
+
+  if (!title || !topic || !description) {
+    showToast('Please fill in all required fields.', 'error');
+    return;
+  }
+
+  // Collect test cases
+  const test_cases = [];
+  for (let i = 1; i <= tcCount; i++) {
+    const inputEl = document.getElementById(`tc-input-${i}`);
+    const outputEl = document.getElementById(`tc-output-${i}`);
+    if (!inputEl || !outputEl) continue;
+    const output = outputEl.value.trim();
+    if (!output) continue;
+    test_cases.push({
+      input: inputEl.value,
+      output: output,
+      hidden: document.getElementById(`tc-hidden-${i}`)?.checked || false,
+      description: document.getElementById(`tc-desc-${i}`)?.value || ''
+    });
+  }
+
+  if (test_cases.length === 0) {
+    showToast('Add at least one test case with expected output.', 'error');
+    return;
+  }
+
+  const btn = document.querySelector('.btn-primary');
+  btn.disabled = true; btn.textContent = '⏳ Saving...';
+
+  const res = await fetch('/task/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ title, topic, description, difficulty, time_limit, publish, test_cases })
+  });
+  const data = await res.json();
+
+  if (data.success) {
+    showToast('✅ Task saved!', 'success');
+    setTimeout(() => window.location.href = '/dashboard', 800);
+  } else {
+    showToast('Failed to save task.', 'error');
+    btn.disabled = false; btn.textContent = '💾 Save Task';
+  }
+}
+
+function showToast(msg, type='info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `show ${type}`;
+  setTimeout(() => t.className = '', 3000);
+}
+</script>
+</body>
+</html>
