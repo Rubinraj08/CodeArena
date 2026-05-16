@@ -16,7 +16,7 @@ bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'index'
 
-groq_api_key = os.getenv("GROQ_API_KEY")
+groq_api_key = "Your_Groq_API_Key_Here"
 groq_client = Groq(api_key=GROQ_API_KEY)
 
 @login_manager.user_loader
