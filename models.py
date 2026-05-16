@@ -79,6 +79,10 @@ class Submission(db.Model):
     is_flagged = db.Column(db.Boolean, default=False)
     integrity_log = db.Column(db.Text, default='[]')
     ai_analysis = db.Column(db.Text, nullable=True)
+    
+    # Dispute fields
+    violation_reason = db.Column(db.Text, nullable=True)
+    violation_status = db.Column(db.String(20), default=None) # 'pending', 'waived', 'rejected'
 
     test_results = db.relationship('TestResult', backref='submission', lazy=True, cascade='all, delete-orphan')
 
@@ -103,3 +107,17 @@ class Badge(db.Model):
     icon = db.Column(db.String(10), nullable=False)
     description = db.Column(db.String(200), nullable=False)
     earned_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class TaskAssignment(db.Model):
+    __tablename__ = 'task_assignments'
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=False)
+    assigned_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    assigned_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    status = db.Column(db.String(20), default='assigned')  # 'assigned', 'completed'
+
+    student = db.relationship('User', foreign_keys=[student_id], backref='assigned_tasks')
+    task = db.relationship('Task', backref='assignments')
+    teacher = db.relationship('User', foreign_keys=[assigned_by])

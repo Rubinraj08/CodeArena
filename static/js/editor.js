@@ -23,22 +23,64 @@ const TEMPLATES = {
   c: `#include <stdio.h>\nint main() {\n    // Your code here\n    return 0;\n}\n`
 };
 
-function setLanguage(lang) {
+function setLanguage(lang, forced = false) {
   const cur = editor.value.trim();
-  const defaultCode = Object.values(TEMPLATES).map(t => t.trim());
-  if (!cur || defaultCode.some(d => cur === d)) {
+  const defaultCodes = Object.values(TEMPLATES).map(t => t.trim());
+  const isDefaultOrEmpty = !cur || defaultCodes.some(d => cur === d);
+
+  if (forced || isDefaultOrEmpty || confirm('Switching language will reset your current code. Continue?')) {
     editor.value = TEMPLATES[lang] || '';
+    document.getElementById('lang-select').value = lang;
+    saveLanguage(lang);
+    saveDraft(); // Save the new template as the draft
+  } else {
+    // Revert dropdown if cancelled
+    document.getElementById('lang-select').value = currentLanguage();
   }
-  document.getElementById('lang-select').value = lang;
 }
 
-// Init with Python template
-if (editor && !editor.value.trim()) {
-  editor.value = TEMPLATES['python'];
+function currentLanguage() {
+  return localStorage.getItem(`codearena_lang_${getTaskId()}`) || 'python';
+}
+
+function getTaskId() {
+  return document.getElementById('task-id').value;
+}
+
+function saveLanguage(lang) {
+  localStorage.setItem(`codearena_lang_${getTaskId()}`, lang);
+}
+
+function saveDraft() {
+  localStorage.setItem(`codearena_draft_${getTaskId()}`, editor.value);
+}
+
+// ─── Initialization ───
+if (editor) {
+  const tid = getTaskId();
+  const savedLang = localStorage.getItem(`codearena_lang_${tid}`) || 'python';
+  const savedCode = localStorage.getItem(`codearena_draft_${tid}`);
+
+  // Set language dropdown
+  document.getElementById('lang-select').value = savedLang;
+
+  // Load code
+  if (savedCode) {
+    editor.value = savedCode;
+  } else {
+    editor.value = TEMPLATES[savedLang] || TEMPLATES['python'];
+  }
+
+  // Save on change
+  editor.addEventListener('input', saveDraft);
 }
 
 // Submit
+let isSubmitting = false;
+
 async function submitCode() {
+  if (isSubmitting) return;
+  
   const code = editor.value;
   const language = document.getElementById('lang-select').value;
   const taskId = document.getElementById('task-id').value;
@@ -49,7 +91,9 @@ async function submitCode() {
   }
 
   const submitBtn = document.getElementById('submit-btn');
+  isSubmitting = true;
   submitBtn.disabled = true;
+  submitBtn.classList.add('loading');
   submitBtn.textContent = '⏳ Evaluating...';
 
   const integrityData = typeof IntegrityMonitor !== 'undefined' ? IntegrityMonitor.getData() : {};
@@ -65,7 +109,9 @@ async function submitCode() {
   } catch (err) {
     showToast('Submission failed. Try again.', 'error');
   } finally {
+    isSubmitting = false;
     submitBtn.disabled = false;
+    submitBtn.classList.remove('loading');
     submitBtn.textContent = '🚀 Submit';
   }
 }
@@ -84,11 +130,23 @@ function showResults(data) {
 
   document.getElementById('modal-passed').textContent = `${data.passed}/${data.total} test cases passed`;
 
+  if (data.status === 'pass') {
+    if (typeof IntegrityMonitor !== 'undefined') IntegrityMonitor.resetState();
+    clearDraft();
+  }
+
   const xpEl = document.getElementById('modal-xp');
   if (data.xp_earned > 0) {
     xpEl.textContent = `+${data.xp_earned} XP earned!`;
     xpEl.style.display = 'block';
-  } else { xpEl.style.display = 'none'; }
+    xpEl.className = 'alert alert-success';
+  } else if (data.xp_penalty > 0) {
+    xpEl.textContent = `-${data.xp_penalty} XP (Integrity Penalty)`;
+    xpEl.style.display = 'block';
+    xpEl.className = 'alert alert-danger';
+  } else { 
+    xpEl.style.display = 'none'; 
+  }
 
   // Test results
   const list = document.getElementById('test-results-list');
@@ -167,4 +225,10 @@ async function runSample() {
   btn.disabled = true; btn.textContent = '▶ Running...';
   await submitCode();
   btn.disabled = false; btn.textContent = '▶ Run';
+}
+// Reset persistence on success
+function clearDraft() {
+  const tid = getTaskId();
+  localStorage.removeItem(`codearena_draft_${tid}`);
+  localStorage.removeItem(`codearena_lang_${tid}`);
 }

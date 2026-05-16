@@ -319,9 +319,16 @@ tr:hover td { background: rgba(0,212,255,0.03); }
   border-radius: var(--radius-lg); padding: 28px; width: 540px; max-width: 95vw;
   box-shadow: 0 0 60px rgba(0,212,255,0.15);
   animation: modalIn 0.25s ease;
+  display: flex; flex-direction: column; max-height: 90vh;
 }
+.modal-body {
+  flex: 1; overflow-y: auto; padding-right: 8px; margin: 10px 0;
+  scrollbar-width: thin; scrollbar-color: var(--border-glow) transparent;
+}
+.modal-body::-webkit-scrollbar { width: 4px; }
+.modal-body::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 10px; }
 @keyframes modalIn { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
-.modal-title { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; margin-bottom: 16px; color: var(--accent); }
+.modal-title { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; margin-bottom: 12px; color: var(--accent); flex-shrink: 0; }
 
 /* ─── Score Ring ─── */
 .score-ring { display: flex; flex-direction: column; align-items: center; margin: 20px 0; }

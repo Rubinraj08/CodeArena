@@ -9,6 +9,7 @@ function switchTab(tab) {
     forms[k].classList.toggle('active', k === tab);
   });
   msgDiv.innerHTML = '';
+  forms[tab].querySelectorAll('input').forEach(i => i.value = '');
 }
 
 // Role selection

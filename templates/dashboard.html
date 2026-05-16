@@ -200,7 +200,7 @@
       {% if students %}
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Rank</th><th>Student</th><th>Level</th><th>XP</th><th>Analytics</th></tr></thead>
+          <thead><tr><th>Rank</th><th>Student</th><th>Level</th><th>XP</th><th>🚩 Flagged</th><th>Analytics</th><th>Assignment</th></tr></thead>
           <tbody>
           {% for s in students %}
           <tr>
@@ -208,7 +208,17 @@
             <td>{{ s.avatar }} {{ s.username }}</td>
             <td>{{ s.level }}</td>
             <td class="text-accent mono">{{ s.xp }}</td>
+            <td>
+              {% if s.flagged_count and s.flagged_count > 0 %}
+                <button class="btn btn-sm" style="background: rgba(255, 68, 68, 0.1); color: var(--red); border: 1px solid var(--red);" onclick="viewFlaggedHistory({{ s.id }}, '{{ s.username }}')">
+                  🚩 {{ s.flagged_count }} Violations
+                </button>
+              {% else %}
+                <span class="text-muted" style="opacity: 0.5;">0</span>
+              {% endif %}
+            </td>
             <td><button class="btn btn-ghost btn-sm" onclick="viewStudentAnalytics({{ s.id }})">📊 View</button></td>
+            <td><a href="/task/create?assign_to={{ s.id }}" class="btn btn-accent btn-sm">➕ Create Task</a></td>
           </tr>
           {% endfor %}
           </tbody>
@@ -221,6 +231,28 @@
 
     <!-- ════════════════════ STUDENT PANELS ════════════════════ -->
     {% else %}
+    
+    <!-- Pending Integrity Disputes Banner -->
+    {% if pending_disputes %}
+    <div class="card mb-24" style="border: 1px solid var(--red); background: rgba(255, 68, 68, 0.1); padding: 20px;">
+      <div class="flex between flex-center">
+        <div class="flex flex-center gap-16">
+          <span style="font-size: 32px;">⚠️</span>
+          <div>
+            <h3 style="color: var(--red); margin: 0; font-family: 'Rajdhani', sans-serif;">Integrity Action Required</h3>
+            <p class="text-muted text-sm" style="margin-top: 4px;">You have {{ pending_disputes|length }} flagged submission(s) with an XP penalty. Provide a justification to request a review.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-8" style="max-width: 400px; justify-content: flex-end;">
+          {% for d in pending_disputes %}
+          <button class="btn btn-outline btn-sm" style="border-color: var(--red); color: var(--red);" onclick="openDisputeModal({{ d.id }}, '{{ d.task.title }}')">
+             Justify: {{ d.task.title }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- XP Bar (Student header) -->
     <div class="card mb-24" style="padding:16px 20px;">
@@ -253,6 +285,27 @@
 
     <!-- Challenges -->
     <div class="panel active" id="panel-challenges">
+      {% if assigned_tasks %}
+      <h2 class="section-title">🎯 Assigned for You</h2>
+      <div class="task-grid mb-24">
+        {% for assignment in assigned_tasks if assignment.status == 'assigned' %}
+        <div class="task-card card-glow" onclick="window.location.href='/task/{{ assignment.task.id }}/solve'" style="border:1px solid var(--accent);">
+          <div class="task-meta">
+            <span class="tag tag-{{ assignment.task.difficulty }}">{{ assignment.task.difficulty }}</span>
+            <span class="tag" style="background:rgba(0,212,255,0.1);color:var(--accent);">{{ assignment.task.topic }}</span>
+            <span class="tag" style="background:var(--accent); color:white;">REQUIRED</span>
+          </div>
+          <div class="task-title">{{ assignment.task.title }}</div>
+          <div class="task-desc">{{ assignment.task.description[:100] }}...</div>
+          <div class="task-footer">
+            <span class="text-muted text-sm">Assigned by {{ assignment.teacher.username }}</span>
+            <span class="xp-pill">+{{ assignment.task.xp_reward }} XP</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       <h2 class="section-title">⚔️ Available Challenges</h2>
       {% if tasks %}
       <div class="task-grid">
@@ -383,6 +436,26 @@
   </div>
 </div>
 
+<!-- Assign Task Modal (Teacher) -->
+<div class="modal-overlay" id="assign-modal">
+  <div class="modal" style="max-width:450px;">
+    <div class="modal-title">🎯 Assign Task to <span id="assign-student-name"></span></div>
+    <div class="form-group" style="margin-top:20px;">
+      <label class="label">Select Challenge</label>
+      <select id="assign-task-select" class="select">
+        <option value="">Loading tasks...</option>
+      </select>
+    </div>
+    <div class="text-muted text-sm" style="margin-top:10px;">
+      Assigned tasks will appear at the top of the student's dashboard.
+    </div>
+    <div style="margin-top:20px; text-align:right; display:flex; gap:10px; justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="document.getElementById('assign-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="btn-confirm-assign" onclick="confirmAssignment()">Confirm Assignment</button>
+    </div>
+  </div>
+</div>
+
 <!-- AI Analysis Modal -->
 <div class="modal-overlay" id="ai-modal">
   <div class="modal" style="max-width:700px;">
@@ -479,6 +552,188 @@ async function viewAiAnalysis(subId) {
     content.innerHTML = '<div class="alert alert-danger">Failed to load analysis.</div>';
   }
 }
+
+let selectedStudentId = null;
+async function openAssignModal(studentId, studentName) {
+  selectedStudentId = studentId;
+  document.getElementById('assign-student-name').textContent = studentName;
+  const select = document.getElementById('assign-task-select');
+  select.innerHTML = '<option value="">Loading tasks...</option>';
+  document.getElementById('assign-modal').classList.add('open');
+
+  try {
+    const res = await fetch('/teacher/tasks');
+    const tasks = await res.json();
+    if (tasks.length === 0) {
+      select.innerHTML = '<option value="">No tasks found. Create one first.</option>';
+    } else {
+      select.innerHTML = tasks.map(t => `<option value="${t.id}">${t.title}</option>`).join('');
+    }
+  } catch (err) {
+    select.innerHTML = '<option value="">Error loading tasks.</option>';
+  }
+}
+
+async function confirmAssignment() {
+  const taskId = document.getElementById('assign-task-select').value;
+  if (!taskId) return showToast('Please select a task.', 'error');
+  
+  const btn = document.getElementById('btn-confirm-assign');
+  btn.disabled = true; btn.textContent = 'Assigning...';
+
+  try {
+    const res = await fetch('/task/assign', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ student_id: selectedStudentId, task_id: taskId })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✅ Task assigned successfully!', 'success');
+      document.getElementById('assign-modal').classList.remove('open');
+    } else {
+      showToast(data.message, 'error');
+    }
+  } catch (err) {
+    showToast('Failed to assign task.', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Confirm Assignment';
+  }
+}
+</script>
+<!-- Flagged History Modal (Teacher) -->
+<div class="modal-overlay" id="flagged-history-modal">
+  <div class="modal" style="width: 700px;">
+    <div class="modal-title flex between">
+      <span>🚩 Integrity Violation History: <span id="fh-student-name"></span></span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('flagged-history-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="fh-content">
+      <!-- Detailed history entries here -->
+    </div>
+  </div>
+</div>
+
+<!-- Dispute Modal (Student) -->
+<div class="modal-overlay" id="dispute-modal">
+  <div class="modal">
+    <div class="modal-title">Justify Integrity Violation</div>
+    <div class="form-group">
+      <label class="label">Task: <span id="dm-task-title" class="text-accent"></span></label>
+      <textarea id="dm-reason" class="textarea" placeholder="Explain why the violation occurred..."></textarea>
+    </div>
+    <div class="flex gap-8" style="justify-content: flex-end; margin-top: 20px;">
+      <button class="btn btn-ghost" onclick="closeModal('dispute-modal')">Cancel</button>
+      <button id="dm-submit-btn" class="btn btn-primary">Submit Justification</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function closeModal(modalId) {
+  document.getElementById(modalId).classList.remove('open');
+}
+
+// Teacher Functions
+async function viewFlaggedHistory(studentId, studentName) {
+  document.getElementById('fh-student-name').textContent = studentName;
+  const content = document.getElementById('fh-content');
+  content.innerHTML = '<div class="text-center p-20">Loading...</div>';
+  document.getElementById('flagged-history-modal').classList.add('open');
+  
+  try {
+    const res = await fetch(`/teacher/student/${studentId}/flagged`);
+    const data = await res.json();
+    
+    if (data.length === 0) {
+      content.innerHTML = '<div class="empty-state">No violations found.</div>';
+      return;
+    }
+    
+    content.innerHTML = data.map(sub => `
+      <div class="card mb-16" style="border: 1px solid ${sub.status === 'waived' ? 'var(--green)' : 'var(--border)'}">
+        <div class="flex between flex-center mb-8">
+          <div class="bold text-accent">${sub.task_title}</div>
+          <div class="text-muted text-sm">${sub.submitted_at}</div>
+        </div>
+        <div class="flex gap-16 mb-12">
+          <span class="tag tag-fail">Tab Switches: ${sub.tab_switches}</span>
+          <span class="tag tag-fail">Copy/Paste: ${sub.copy_paste}</span>
+          <span class="tag ${sub.status === 'waived' ? 'tag-pass' : 'tag-warn'}">Status: ${sub.status || 'Pending'}</span>
+        </div>
+        
+        ${sub.reason ? `
+          <div class="alert alert-info" style="margin-bottom:12px;">
+            <div class="label" style="margin-bottom:4px; color:var(--text); font-size:10px;">Student's Justification:</div>
+            <div style="font-style:italic;">"${sub.reason}"</div>
+          </div>
+        ` : '<div class="text-muted text-sm italic mb-12">No justification provided yet.</div>'}
+        
+        ${sub.status === 'pending' || !sub.status ? `
+          <div class="flex gap-8">
+            <button class="btn btn-success btn-sm" onclick="resolveFlag(${sub.id}, 'waive')">✅ Accept & Restore +25 XP</button>
+            <button class="btn btn-outline btn-sm" style="border-color:var(--red); color:var(--red);" onclick="resolveFlag(${sub.id}, 'reject')">❌ Reject Dispute</button>
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  } catch (err) {
+    content.innerHTML = '<div class="alert alert-danger">Error loading violations.</div>';
+  }
+}
+
+async function resolveFlag(subId, action) {
+  // Removed confirm() for better automation and smooth UX
+  
+  try {
+    const res = await fetch(`/teacher/violation/resolve/${subId}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ action })
+    });
+    const data = await res.json();
+    if (data.success) {
+      location.reload();
+    }
+  } catch (err) {
+    alert('Error resolving flag.');
+  }
+}
+
+// Student Functions
+let activeDisputeSubId = null;
+function openDisputeModal(subId, taskTitle) {
+  activeDisputeSubId = subId;
+  document.getElementById('dm-task-title').textContent = taskTitle;
+  document.getElementById('dm-reason').value = '';
+  document.getElementById('dispute-modal').classList.add('open');
+}
+
+document.getElementById('dm-submit-btn').onclick = async () => {
+  const reason = document.getElementById('dm-reason').value;
+  if (!reason.trim()) return alert('Please enter a reason.');
+  
+  const btn = document.getElementById('dm-submit-btn');
+  btn.disabled = true;
+  
+  try {
+    const res = await fetch(`/student/violation/dispute/${activeDisputeSubId}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ reason })
+    });
+    const data = await res.json();
+    if (data.success) {
+      location.reload();
+    } else {
+      alert(data.message || 'Error submitting dispute.');
+    }
+  } catch (err) {
+    alert('Network error.');
+  } finally {
+    btn.disabled = false;
+  }
+};
 </script>
 </body>
 </html>
