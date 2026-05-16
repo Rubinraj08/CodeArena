@@ -1,55 +1,125 @@
-CodeArena
-A gamified coding platform built with Flask, where users can solve coding challenges, earn badges, and compete in a fun environment.
+# CodeArena 🚀
 
-Features
-User authentication and profiles
-Coding challenges with test cases
-Real-time code execution and validation
-Badge system for achievements
-Leaderboards and competition
-AI-powered code assistance (using Groq API)
-Admin panel for task creation
-Installation
-Clone the repository:
+CodeArena is a gamified coding platform built using Flask where users can solve coding challenges, earn badges, and compete with others in an interactive environment.
 
-git clone https://github.com/Vishnuprasath18/CodeArena-.git
-cd CodeArena-
-Create a virtual environment:
+---
 
+## ✨ Features
+
+- 🔐 User Authentication & Profiles
+- 💻 Coding Challenges with Test Cases
+- ⚡ Real-Time Code Execution & Validation
+- 🏆 Badge & Achievement System
+- 📊 Leaderboards and Competition
+- 🤖 AI-Powered Code Assistance using Groq API
+- 🛠️ Admin Panel for Challenge Management
+
+---
+
+## 🛠️ Tech Stack
+
+- Python
+- Flask
+- SQLite
+- HTML/CSS/JavaScript
+- Groq API
+
+---
+
+## 📂 Project Structure
+
+```bash
+CodeArena/
+│
+├── app.py               # Main Flask application
+├── models.py            # Database models
+├── requirements.txt     # Python dependencies
+├── templates/           # HTML templates
+├── static/              # CSS, JS, Images
+├── instance/            # Database files
+├── .env                 # Environment variables
+└── README.md
+```
+
+---
+
+## ⚙️ Installation
+
+### 1️⃣ Clone the Repository
+
+```bash
+git clone https://github.com/Rubinraj08/CodeArena.git
+cd CodeArena
+```
+
+### 2️⃣ Create a Virtual Environment
+
+#### Windows
+```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-Install dependencies:
+venv\Scripts\activate
+```
 
+#### Linux / Mac
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+---
+
+### 3️⃣ Install Dependencies
+
+```bash
 pip install -r requirements.txt
-Set up the database:
+```
 
-python models.py  # This will create the database
-Set environment variables:
+---
 
-Create a .env file in the root directory
-Add your Groq API key: GROQ_API_KEY=your_api_key_here
-Usage
-Run the application:
+### 4️⃣ Configure Environment Variables
 
+Create a `.env` file in the project root directory and add:
+
+```env
+GROQ_API_KEY=your_groq_api_key_here
+```
+
+---
+
+### 5️⃣ Set Up Database
+
+```bash
+python models.py
+```
+
+---
+
+## ▶️ Run the Application
+
+```bash
 python app.py
-Open your browser and go to http://localhost:5000
+```
 
-Register an account or log in
+Open your browser and visit:
 
-Start solving coding challenges!
+```bash
+http://localhost:5000
+```
 
-Environment Variables
-GROQ_API_KEY: Your Groq API key for AI code assistance (optional)
-Project Structure
-app.py: Main Flask application
-models.py: Database models
-templates/: HTML templates
-static/: CSS and JavaScript files
-instance/: Database files (not committed)
-Contributing
-Fork the repository
-Create a feature branch
-Make your changes
-Submit a pull request
-License
+---
+
+## 🔑 Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GROQ_API_KEY` | Groq API Key for AI code assistance |
+
+---
+
+---
+
+## 📜 License
+
 This project is licensed under the MIT License.
+
+---
